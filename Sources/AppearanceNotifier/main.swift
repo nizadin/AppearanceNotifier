@@ -68,69 +68,13 @@ func respond(theme: Theme) {
                     do {
                         try shellOut(to: "nvr", arguments: arguments)
                     } catch {
-                        print("\(Date()) neovim server \(String(server)): command failed")
+                        print("\(Date()) neovim server \(String(server)): command failed with arguments - \(arguments)")
+
+                        let error = error as! ShellOutError
+                        print(error.message) // Prints STDERR
+                        print(error.output) // Prints STDOUT
                     }
                 }
-            }
-        }
-
-        DispatchQueue.global().async {
-            print("\(Date()) neovim: updating config")
-
-            let arguments = [
-                "-E",
-                "-i",
-                "\"\"",
-                "\"1s/.*/return '\(toKebabCase(sentence: themeToModusTheme(theme: theme)))'/g\"",
-                "~/.config/nvim/lua/user/ui/theme.lua",
-            ]
-
-            do {
-                try shellOut(to: "sed", arguments: arguments)
-            } catch {
-                print("\(Date()) neovim: config update failed")
-            }
-        }
-
-        DispatchQueue.global().async {
-            print("\(Date()) kitty: updating config")
-
-            let arguments = [
-                "-E",
-                "-i",
-                "\"\"",
-                "\"2s/.*/include ..\\/colours\\/kovidgoyal\\/kitty-themes\\/\(toSnakeCase(sentence: themeToModusTheme(theme: theme))).conf/g\"",
-                "~/.config/kitty/conf/colours.conf",
-            ]
-
-            do {
-                try shellOut(to: "sed", arguments: arguments)
-            } catch {
-                print("\(Date()) kitty: config update failed")
-            }
-        }
-
-        DispatchQueue.global().async {
-            print("\(Date()) kitty: sending command")
-
-            let arguments = buildKittyArguments(theme: "~/.config/kitty/colours/kovidgoyal/kitty-themes/\(toSnakeCase(sentence: themeToModusTheme(theme: theme))).conf")
-
-            do {
-                try shellOut(to: "kitty", arguments: arguments)
-            } catch {
-                print("\(Date()) kitty: command failed")
-            }
-        }
-
-        DispatchQueue.global().async {
-            print("\(Date()) emacs: sending command")
-
-            let arguments = buildEmacsArguments(theme: theme)
-
-            do {
-                try shellOut(to: "emacsclient", arguments: arguments)
-            } catch {
-                print("\(Date()) emacs: command failed: \(error)")
             }
         }
     } catch {
@@ -141,50 +85,7 @@ func respond(theme: Theme) {
 }
 
 func buildNvimBackgroundArguments(server: String, theme: Theme) -> [String] {
-    return ["--servername", server, "+'colorscheme \(toKebabCase(sentence: themeToModusTheme(theme: theme)))'"]
-}
-
-func buildKittyArguments(theme: String) -> [String] {
-    return [
-        "@", "--to", "unix:/tmp/kitty", "set-colors", "--all", "--configured", theme,
-    ]
-}
-
-func buildEmacsArguments(theme: Theme) -> [String] {
-    return [
-        "--socket-name",
-        "~/.config/emacs/server/server",
-        "--eval",
-        #""(load-theme '\#(toKebabCase(sentence: themeToModusTheme(theme: theme))) t)""#,
-        "--quiet",
-        "-no-wait",
-        "--suppress-output",
-        "-a",
-        "true",
-    ]
-}
-
-func themeToModusTheme(theme: Theme) -> String {
-    return {
-        switch theme {
-        case .light:
-            return "Modus Operandi"
-        case .dark:
-            return "Modus Vivendi"
-        }
-    }()
-}
-
-func toSnakeCase(sentence: String) -> String {
-    let lowercaseSentence = sentence.lowercased()
-
-    return lowercaseSentence.replacingOccurrences(of: " ", with: "_")
-}
-
-func toKebabCase(sentence: String) -> String {
-    let lowercaseSentence = sentence.lowercased()
-
-    return lowercaseSentence.replacingOccurrences(of: " ", with: "-")
+    return ["--servername", server, "-c", "\"lua vim.o.background = '\(theme)'\""]
 }
 
 let app = NSApplication.shared
